@@ -5,8 +5,7 @@
 #
 # Relies on gdal and osr for manipulating files, and errno/os for error handling
 #
-# Kevin Gauld kgauld@caltech.edu
-# July 2024
+# Kevin Gauld, 2025
 
 from osgeo import gdal, osr, gdalconst
 from osgeo_utils import gdal_calc

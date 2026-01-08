@@ -1,13 +1,13 @@
-import os, sys, shutil, traceback, logging
+# Generatees hillshade images from LOLA topography for a given M3 observation
+# Uses GDAL DEMProcessing to compute hillshade with given azimuth, incidence angle, and
+# z-factor. Clips the global LOLA DEM to the M3 observation bounding box and reprojects
+# to sinusoidal projection prior to hillshade generation.
 
-from osgeo import gdal, osr, gdalconst
-from osgeo_utils import gdal_calc
+# Kevin Gauld 2025
 
+from osgeo import gdal
 import numpy as np
-import pandas as pd
-from PIL import Image
 import cv2 as cv
-import matplotlib.pyplot as plt
 
 class Hillshade_Generator:
     def __init__(self, M3_OBJ, workdir, inlola="Topography/LunarTopography_60mpx.tif"):
@@ -17,9 +17,11 @@ class Hillshade_Generator:
         self.get_topo_sinu(regen_topo=True)
     
     def get_topo_clip(self, outfn=None):
+        # Clips the global LOLA DEM topography to the bounding box defined by the
+        # M3 observation region
         if outfn is None:
             outfn = f'{self.workdir}/{self.M3_OBJ.m3id}_topo.tif'
-        #Clip the global LOLA DEM topography to the bounding box.
+        
         gdal.Warp(outfn, self.inlola,
                 options = gdal.WarpOptions(
                     format='GTiff',
@@ -32,23 +34,30 @@ class Hillshade_Generator:
         self.clip_fn = outfn
     
     def get_topo_sinu(self, outfn=None, regen_topo=False):
+        # Reprojects the clipped topography to sinusoidal projection, regenerating
+        # the clipped region if needed.
+
         if outfn is None:
             outfn = f'{self.workdir}/{self.M3_OBJ.m3id}_topo_sinu.tif'
         
         if regen_topo:
             self.get_topo_clip()
 
-        # Reproject the topography to sinusoidal
         gdal.Warp(outfn,self.clip_fn,
             options=gdal.WarpOptions(
                 format='GTiff',
                 dstSRS=f'+proj=sinu +lon_0={self.M3_OBJ.clon} +x_0=0 +y_0=0 +a=1737400 +b=1737400 +no_defs'
             ))
+        
         self.sinu_fn = outfn
         sinu_img = cv.imread(self.sinu_fn, cv.IMREAD_ANYDEPTH)
         self.sinu_mask = np.where(sinu_img < 32767)
     
     def get_hillshade(self, azm=None, inc=None, zfactor=1, fnout=None, regen_topo=False):
+        # Creates the hillshade based on the sinusoidal topography, with the same
+        # observation geometry as the M3 observation (azimuth, incidence angle).
+        # If desired, a z-factor can be specified to scale the topography.
+
         azm     = self.M3_OBJ.azm if azm is None else azm
         inc     = self.M3_OBJ.inc if inc is None else inc
         alt     = 90-inc
@@ -70,6 +79,12 @@ class Hillshade_Generator:
         return fnout
     
     def get_best_zfactor(self, azm=None, inc=None, initial_guess=1):
+        # This function iteratively computes hillshades with different z-factors
+        # to find the best z-factor that maximizes contrast in the hillshade image.
+        # It does this by analyzing the proportion of high and low saturation pixels,
+        # as well as the standard deviation and mean of pixel values in the hillshade
+        # within the M3 observation region.
+        
         azm     = self.M3_OBJ.azm if azm is None else azm
         inc     = self.M3_OBJ.inc if inc is None else inc
         alt     = 90-inc

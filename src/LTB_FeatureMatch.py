@@ -17,24 +17,21 @@
 
 # Depends on ImageReg.py and M3.py
 
-# Kevin Gauld (kgauld@caltech.edu)
-# June 2024
+# Kevin Gauld, 2025
 
 
 import os, sys, shutil, traceback, logging
 
-from osgeo import gdal, osr, gdalconst
-from osgeo_utils import gdal_calc
+from osgeo import gdal
 
 import numpy as np
 import pandas as pd
-from PIL import Image
 import cv2 as cv
 import matplotlib.pyplot as plt
 
 from M3 import M3
 from Hillshade_Generator import Hillshade_Generator
-from ImageReg import IterativeMatcher
+from ImageReg import IMPPAIL
 
 logging.basicConfig(filename='Results/runlog.log',
                     filemode='a',
@@ -55,7 +52,7 @@ logging.getLogger('').addHandler(console)
 
 logging.info('STARTING NEW RUN')
 
-FM_OBJ = IterativeMatcher()
+FM_OBJ = IMPPAIL()
 
 # Input file for topography
 inlola = "Topography/LunarTopography_60mpx.tif"

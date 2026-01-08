@@ -1,10 +1,13 @@
-# Kevin Gauld
-# June 2024
+# This module implements the IMPPAIL algorithm for SIFT-based feature matching 
+# between two images, described in Gauld et al. (2025). It provides classes for
+# a simple Feature Matcher, as well as an Iterative Matcher to improve upon the
+# single iteration feature matching process.
+
+# Kevin Gauld, 2025
 
 # Implements SIFT-based Feature Matching
 import cv2 as cv
 import numpy as np
-import warnings
 from skimage import exposure
 import logging
 
@@ -119,7 +122,7 @@ def colortransfer(src, dst):
     dstremap[mask] = dst_mask
     return src, dstremap
 
-class IterativeMatcher:
+class IMPPAIL:
     '''
     Iteratively improves matching between images.
     '''
