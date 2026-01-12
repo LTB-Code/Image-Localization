@@ -8,7 +8,6 @@ import numpy as np
 import cv2 as cv
 import pandas as pd
 import sys, os, logging
-import argparse
 
 logging.basicConfig(filename='Results/runlog.log',
                     filemode='a',
@@ -53,41 +52,40 @@ def get_mean_dist(m3id):
     return mean_dist
 
 
-def show_results():
-    acc_df = pd.read_csv('Results/accuracy.csv')
+def show_results(fn='accuracy.csv'):
+    acc_df = pd.read_csv(f"Results/{fn}")
     md = acc_df['MEAN_DIST'].values
     md = md[md>0]
     logging.info(f"Min: {np.min(md)}, Max: {np.max(md)}, Mean: {np.mean(md)}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-f", "--file",
-        type=str,
-        default='accuracy.csv',
-        help="Input file (default: input.txt)"
-    )
-    args = parser.parse_args()
-    fnout = args.file
+    if sys.argv[1] == 'show':
+        fnshow = 'accuracy.csv' if len(sys.argv) < 3 else sys.argv[2]
+        show_results(fn=fnshow)
+        quit()
 
-    if fnout is None:
-        if sys.argv[1] == 'show':
-            show_results()
-        else:
-            logging.info(f"Mean Dist for {sys.argv[1]}: {get_mean_dist(sys.argv[1])}")
+    if len(sys.argv) == 2:
+        logging.info(f"Mean Dist for {sys.argv[1]}: {get_mean_dist(sys.argv[1])}")
         quit()
     
-    m3ids = open(sys.argv[2], 'r').read().split('\n')
+    if len(sys.argv) > 1 and sys.argv[1] == '-f':
+        fnout = 'accuracy.csv' if len(sys.argv) < 4 else sys.argv[3]
+        m3ids = open(sys.argv[2], 'r').read().split('\n')
 
-    if fnout not in os.listdir('Results'):
-        data = pd.DataFrame(columns=['M3ID', 'MEAN_DIST'])
+        if fnout not in os.listdir('Results'):
+            data = pd.DataFrame(columns=['M3ID', 'MEAN_DIST'])
+        else:
+            data = pd.read_csv(f'Results/{fnout}')
+        
+        for k_m3id in range(len(m3ids)):
+            logging.info(f"Starting {m3ids[k_m3id]}")
+            mdist = get_mean_dist(m3ids[k_m3id])
+            k_data = {'M3ID': m3ids[k_m3id], 'MEAN_DIST': mdist}
+            data = pd.concat([data, pd.DataFrame(k_data, index=[0])])
+            data.to_csv(f'Results/{fnout}',index=False)
+        show_results(fn=fnout)
     else:
-        data = pd.read_csv(f'Results/{fnout}')
-    
-    for k_m3id in range(len(m3ids)):
-        logging.info(f"Starting {m3ids[k_m3id]}")
-        mdist = get_mean_dist(m3ids[k_m3id])
-        k_data = {'M3ID': m3ids[k_m3id], 'MEAN_DIST': mdist}
-        data = pd.concat([data, pd.DataFrame(k_data, index=[0])])
-        data.to_csv(f'Results/{fnout}',index=False)
-    show_results()
+        logging.error(f"INVALID PARAMS\n"
+                      "SINGLE M3ID:\t python Check_Accuracy.py <M3ID>\n"
+                      "BATCH RUN:\t python Check_Accuracy.py -f <M3 list file> <optional save_fn=accuracy.csv>\n"
+                      "VIEW RESULTS:\t python Check_Accuracy.py show <optional save_fn=accuracy.csv>")
