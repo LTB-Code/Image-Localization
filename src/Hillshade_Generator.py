@@ -118,6 +118,8 @@ class Hillshade_Generator:
             if mean+stdev > 255:
                 guess += 1
             
+            guess = max(0.5, guess)
+
             print(f"{prev_guess} --> {guess}")
             if guess == prev_guess:
                 break
