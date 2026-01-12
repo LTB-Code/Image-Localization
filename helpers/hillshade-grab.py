@@ -3,11 +3,10 @@
 # Provides infrastructure for testing hillshade generation.
 
 import os, shutil
-from osgeo import gdal, gdalconst
+from osgeo import gdal
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
-import glob
 
 def get_hillshade(minlat, minlon, maxlat, maxlon, configs, outdir=None):
     clon = (minlon+maxlon)/2
