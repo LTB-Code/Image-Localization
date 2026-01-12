@@ -91,13 +91,13 @@ def make_overlay_img(therm_img, vswir_img, H_f, ofn):
 if __name__ == "__main__":
     m3id = m3idD # Change to select which M3ID to use
 
-    dst_fn = f'Results/{m3id}'
-    src_fn = f'TIFFs/{m3id}'
+    dst_fn = f'Results-THERMAL/{m3id}'
+    src_fn = f'Data_Thermal/TIFFs/{m3id}'
 
     # Get the thermal images and the pre-computed M3 image used in matching
     # (same averaging across bands as in the original matching)
     thermal_im_fns = glob.glob(f'{src_fn}/*.tif')
-    match_im_fn = f'M3IMGs/{m3id}/{m3id}_RDN_average_byte.tif' 
+    match_im_fn = f'Data_Thermal/M3_IMGS/{m3id}_RDN_average_byte.tif' 
 
     therm_image = cv.imread(thermal_im_fns[0], cv.IMREAD_ANYDEPTH)
     match_im = cv.imread(match_im_fn, cv.IMREAD_ANYDEPTH)
