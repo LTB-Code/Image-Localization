@@ -5,7 +5,7 @@
 
 # Kevin Gauld 2025
 
-import glob
+import glob, os
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
@@ -93,6 +93,8 @@ if __name__ == "__main__":
 
     dst_fn = f'Results-THERMAL/{m3id}'
     src_fn = f'Data_Thermal/TIFFs/{m3id}'
+
+    os.makedirs(dst_fn, exist_ok=True)
 
     # Get the thermal images and the pre-computed M3 image used in matching
     # (same averaging across bands as in the original matching)
