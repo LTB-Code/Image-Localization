@@ -1,4 +1,4 @@
-# Image-Localization
+# Image Localization: Code for the Iterative Matching Pipeline for Post-Acquisition Image Localization (IMPPAIL)
 
 This repository includes the code for the IMPPAIL process as described in Gauld et al. (2025).
 
