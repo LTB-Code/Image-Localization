@@ -159,7 +159,7 @@ def run_thermal_match(m3id, plot=False):
             H_f, kp_f, kp2, matches_f, mask = FM_OBJ.iterative_match(t_img, match_im)
             
             logging.info(f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}.png')
-            make_output_img(t_img, match_im, H_f, kp_f, kp2, matches_f, mask, f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}.png')
+            make_output_img(t_img, match_im, H_f, kp_f, kp2, matches_f, mask, f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}_pairs.png')
             make_overlay_img(t_img, match_im, H_f, f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}_overlay.png')
         except Exception as e:
             logging.error(e)
