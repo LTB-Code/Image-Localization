@@ -245,8 +245,9 @@ class IMPPAIL:
                 des_f = des_f+des1
                 matches_f = matches_f+new_matches
 
-        # Throw an error if there are no matches, otherwise return the detected matches.
-        assert len(matches_f) > 0, "NO MATCHES FOUND"
+        # Throw an error if there are less than 4 matches, otherwise return the detected matches.
+        assert len(matches_f) >= 4, "LESS THAN 4 TOTAL MATCHES FOUND - MATCH FAILED"
+        
         ptsA = np.array([kp_f[k.queryIdx].pt for k in matches_f])
         ptsB = np.array([self.kp2[k.trainIdx].pt for k in matches_f])
         try:
@@ -256,29 +257,5 @@ class IMPPAIL:
                 raise Exception()
         except:
             H_f, mask = cv.findHomography(ptsA, ptsB, 0)
+        
         return H_f, kp_f, self.kp2, matches_f, mask
-    
-    def match_and_plot(self, outfns, im1, im2, 
-                       colormatch=True, cmatch_fns=None, 
-                       n_iters=10, H_init=np.eye(3)):
-        # Perform the iterative matching
-        (H_f, kp_f, kp2, matches_f, mask) = self.iterative_match(im1, im2, 
-                                                           colormatch=colormatch, cmatch_fns=cmatch_fns, 
-                                                           n_iters=n_iters, H_init=H_init)
-        
-        if colormatch:
-            im1, im2 = colortransfer(im1,im2)
-        
-        # Create images for output to assess match quality
-        img3 = cv.warpPerspective(im1, H_f, im2.shape[::-1])//2
-        cv.imwrite(outfns[2], img3)
-        img3 += im2//2
-        img4 = cv.drawMatches(im1,kp_f,im2,kp2,matches_f,None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-        img5 = cv.drawKeypoints(im1, kp_f, im1, cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        img6 = cv.drawKeypoints(im2, kp2, im2, cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        cv.imwrite(outfns[0], img3)
-        cv.imwrite(outfns[1], img4)
-        cv.imwrite(outfns[3], img5)
-        cv.imwrite(outfns[4], img6)
-
-        return H_f, kp_f, kp2, matches_f, mask, outfns

@@ -87,7 +87,7 @@ class Hillshade_Generator:
         
         azm     = self.M3_OBJ.azm if azm is None else azm
         inc     = self.M3_OBJ.inc if inc is None else inc
-        alt     = 90-inc
+
         guess = initial_guess
 
         for i in range(10):

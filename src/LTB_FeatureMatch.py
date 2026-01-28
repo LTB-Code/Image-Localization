@@ -31,7 +31,9 @@ import matplotlib.pyplot as plt
 
 from M3 import M3
 from Hillshade_Generator import Hillshade_Generator
-from ImageReg import IMPPAIL
+from ImageReg import IMPPAIL, colortransfer
+
+os.makedirs('Results', exist_ok=True)
 
 logging.basicConfig(filename='Results/runlog.log',
                     filemode='a',
@@ -65,7 +67,7 @@ HVM3_RES = 60
 # Define the bands used for averaging the M3 radiance data. This includes
 # the first band, excludes the last band. Averaging bands together increases
 # quality of the image product used in matching.
-band_bnds=(71,82)  #(5,15)
+band_bnds=(71,82)
 
 UNCERTAINTY_SCALE = 1 #2**0.5
 
@@ -78,14 +80,12 @@ m3dir="Data_M3"
 # Each of these metrics are documented later in the script.
 DF_COLS = ['M3ID', 'WORKED',  
            'FIRST_TRY', 'FILE_FOUND',
-           'LON', 'LON_MIN', 'LON_MAX',  
-           'LAT', 'LAT_MIN', 'LAT_MAX',
-           'P_X', 'P_X_MIN', 'P_X_MAX',
-           'P_Y', 'P_Y_MIN', 'P_Y_MAX',
-           'BND_LON', 'BND_LON_MIN', 'BND_LON_MAX',  
-           'BND_LAT', 'BND_LAT_MIN', 'BND_LAT_MAX',
-           'INC', 'AZM', 'INC_MATCH', 'AZM_MATCH', 'N_MATCHES']
-
+           'LON', 'LAT',
+           'BND_LON_MIN', 'BND_LON_MAX',  
+           'BND_LAT_MIN', 'BND_LAT_MAX',
+           'INC', 'AZM', 'Z_FACTOR',
+           'N_MATCHES', 'MEAN_RADIUS']
+    
 def get_latlon_grid(i_grid, j_grid, hshimg, BND_LATS, BND_LONS):
     """
     Converts grids of pixel coordinates (i, j) in a sinusoidally projected image (centered at the middle of the image)
@@ -120,6 +120,27 @@ def get_latlon_grid(i_grid, j_grid, hshimg, BND_LATS, BND_LONS):
 
     return lat_grid, lon_grid
 
+def match_and_plot(FM_OBJ, fn_prefix, im1, im2, 
+                    colormatch=True, cmatch_fns=None, 
+                    n_iters=10, H_init=np.eye(3)):
+    # Perform the iterative matching
+    (H_f, kp_f, kp2, matches_f, mask) = FM_OBJ.iterative_match(im1, im2, 
+                                                        colormatch=colormatch, cmatch_fns=cmatch_fns, 
+                                                        n_iters=n_iters, H_init=H_init)
+    
+    if colormatch:
+        im1, im2 = colortransfer(im1,im2)
+    
+    # Create images for output to assess match quality
+    img3 = cv.warpPerspective(im1, H_f, im2.shape[::-1])//2
+    img3 += im2//2
+    cv.imwrite(f"{fn_prefix}_overlay.tif", img3)
+
+    img4 = cv.drawMatches(im1,kp_f,im2,kp2,matches_f,None,flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    cv.imwrite(f"{fn_prefix}_pairs.tif", img4)
+
+    return H_f, kp_f, kp2, matches_f, mask
+
 def get_backplanes(rdn_fn, hsh_fn, M3_OBJ, H):
     hsh_info = gdal.Open(hsh_fn)
 
@@ -148,6 +169,24 @@ def get_backplanes(rdn_fn, hsh_fn, M3_OBJ, H):
 
     return lon_backplane, lat_backplane
 
+def get_mean_dist(matches):
+    H, mask = cv.findHomography(matches[0], matches[1], cv.RANSAC, 3)
+    if H is None:
+        return -1
+    
+    hpoints_in = matches[0][mask.ravel() == 1]
+    hpoints_out = matches[1][mask.ravel() == 1]
+
+    homogeneous_points = np.hstack((hpoints_in, np.ones((len(hpoints_in), 1))))
+    transformed_points_homogeneous = H @ homogeneous_points.T
+    hpoints_in_tf = (transformed_points_homogeneous[:2, :].T / transformed_points_homogeneous[2, :].reshape(-1, 1))
+
+    d_tf = np.linalg.norm(hpoints_in_tf - hpoints_out, axis=1)
+    mean_dist = np.mean(d_tf)
+    if np.isnan(mean_dist):
+        return -1
+    return mean_dist
+
 def checkFM(M3_OBJ, HSH_OBJ, workdir, 
             inc=None, azm=None, zfactor=1, inrdn_fm=None):
     m3id    = M3_OBJ.m3id
@@ -155,8 +194,8 @@ def checkFM(M3_OBJ, HSH_OBJ, workdir,
     inc     = M3_OBJ.inc if inc is None else inc
 
     inshd_fm = HSH_OBJ.get_hillshade(
-        azm=azm, inc=inc, zfactor=zfactor,
-        fnout=f'{workdir}/{m3id}_hillshade_az{azm:0.2f}_inc{inc:0.2f}.tif'
+        azm=azm, inc=inc, zfactor=zfactor
+        # fnout=f'{workdir}/{m3id}_hillshade_az{azm:0.2f}_inc{inc:0.2f}.tif'
     )
     inrdn_fm = f'{workdir}/{m3id}_RDN_average_byte.tif' if inrdn_fm is None else inrdn_fm
 
@@ -174,30 +213,19 @@ def checkFM(M3_OBJ, HSH_OBJ, workdir,
     H_init = np.array([[M3_RES/HVM3_RES, 0.01,   T_GUESS[1]],
                        [0.01,   M3_RES/HVM3_RES, T_GUESS[0]],
                        [0,      0,      1]])
-    # H_init = np.eye(3, dtype=np.float32)
-    success = False
+    
     #Run image match, providing the filenames to write output to.
     try:
-        H_f, kp_f, kp2, matches_f, _, success = FM_OBJ.match_and_plot([f'{out_fm}_match.tif', 
-                                                                    f'{out_fm}_match2.tif', 
-                                                                    f'{workdir}/{m3id}/{m3id}_RDN_WARP.tif',
-                                                                    f'{workdir}/{m3id}/{m3id}_RDN_KPS.tif',
-                                                                    f'{out_fm}_KPS.tif'], 
-                                                                    RDN, HSH, 
-                                                                    colormatch=True, 
-                                                                    cmatch_fns=[f'{workdir}/{m3id}/{m3id}_RDN_NORM.tif',
-                                                                                f'{out_fm}_NORM.tif',],
-                                                                    H_init=H_init)
+        H_f, kp_f, kp2, matches_f, _= match_and_plot(FM_OBJ, out_fm,
+                                                   RDN, HSH, colormatch=True, 
+                                                   cmatch_fns=[f'{workdir}/{m3id}/{m3id}_RDN_NORM.tif',
+                                                                   f'{out_fm}_NORM.tif',], H_init=H_init)
     except Exception as e:
         # Uncomment the following line for debugging exceptions
         logging.debug(traceback.format_exc())
         logging.error(f"{m3id} FAILED: {e}")
         # shutil.rmtree(f"{workdir}/{m3id}")
-        return False, inshd_fm, None, 0
-    
-    # If matching failed, return that the match failed
-    if not success and not os.path.isfile(f"{out_fm}_match.tif"):
-        return False, inshd_fm, None, len(matches_f)
+        return False, inshd_fm, None, 0, -1
     
     # Create the backplanes and save them to files
     logging.info(f'{m3id} SUCCEEDED! Generating backplanes...')
@@ -206,23 +234,37 @@ def checkFM(M3_OBJ, HSH_OBJ, workdir,
     plt.imsave(f'{workdir}/{m3id}/{m3id}_LON.png', lon_bp)
     np.save(f'{workdir}/{m3id}/{m3id}_LAT.npy', lat_bp)
     plt.imsave(f'{workdir}/{m3id}/{m3id}_LAT.png', lat_bp)
-    np.save(f'{workdir}/{m3id}/{m3id}_HOMOGRAPHY.npy', H_f)
-    pts = np.array([[kp_f[k.queryIdx].pt for k in matches_f],
-                    [kp2[k.trainIdx].pt for k in matches_f]])
-    np.save(f'{workdir}/{m3id}/{m3id}_MATCHES.npy', pts)
+
+    pd.DataFrame(H_f).to_csv(f'{workdir}/{m3id}/{m3id}_HOMOGRAPHY.csv', index=False, header=False)
+    src = np.array([kp_f[k.queryIdx].pt for k in matches_f])
+    dst = np.array([kp2[k.trainIdx].pt for k in matches_f])
+
+    df = pd.DataFrame({
+        "src_x": src[:, 0],
+        "src_y": src[:, 1],
+        "dst_x": dst[:, 0],
+        "dst_y": dst[:, 1],
+    })
+
+    df.to_csv(
+        f"{workdir}/{m3id}/{m3id}_MATCHES.csv",
+        index=False,
+        float_format="%.6f"
+    )
+
+    mean_radius = get_mean_dist(np.array([src, dst]))
 
     img_area = np.radians(np.ptp(lon_bp)) * np.radians(np.ptp(lat_bp)) * (1737.4)**2
     AREA_TARGET = 51.3*63
     logging.info(f"{np.ptp(lon_bp)=}, {np.ptp(lat_bp)=}")
     logging.info(f"{m3id} AREA: {img_area} TARGET: {AREA_TARGET} km^2")
-    # if not (1<np.ptp(lon_bp)<10 and 1<np.ptp(lat_bp)<10):
+
     if not 0.5*AREA_TARGET < img_area < 5*AREA_TARGET:
         logging.error(f"{m3id} BACKPLANE ERROR! MATCH FAILED BY AREA THRESHOLD! {img_area/AREA_TARGET}")
-        return False, inshd_fm, None, len(matches_f)
+        return False, inshd_fm, None, len(matches_f), -1
     
 
-    return True, inshd_fm, [f'{out_fm}_match.tif', 
-                            f'{out_fm}_colormatched.tif'], len(matches_f)
+    return True, inshd_fm, [f'{out_fm}_overlay.tif', f'{out_fm}_pairs.tif' ], len(matches_f), mean_radius
 
 def run_match(m3id):
     '''
@@ -289,29 +331,18 @@ def run_match(m3id):
 
     ####### Populate the data logger
     
-    # Get center/boundary lat/lon. For HVM3, there will only be a center lat
-    # lon coordinate given, no min or max.
+    # Get center M3 lat/lon. 
     infodict['LAT']         =   M3_OBJ.clat
-    infodict['LAT_MIN']     =   M3_OBJ.minlat
-    infodict['LAT_MAX']     =   M3_OBJ.maxlat
     infodict['LON']         =   M3_OBJ.clon
-    infodict['LON_MIN']     =   M3_OBJ.minlon
-    infodict['LON_MAX']     =   M3_OBJ.maxlon
+
     # Record the solar azimuth and incidence angles. This will not be available
     # for HVM3, we will need to use predicted values from MOS/GDS or MdNav
     infodict['INC']         =   M3_OBJ.inc
     infodict['AZM']         =   M3_OBJ.azm
-    # Get the bounding box for the hillshade in both meter and lat/lon space
-    infodict['P_X']         =   M3_OBJ.px
-    infodict['P_X_MIN']     =   M3_OBJ.xmin
-    infodict['P_X_MAX']     =   M3_OBJ.xmax
-    infodict['P_Y']         =   M3_OBJ.py
-    infodict['P_Y_MIN']     =   M3_OBJ.ymin
-    infodict['P_Y_MAX']     =   M3_OBJ.ymax
-    infodict['BND_LAT']     =   M3_OBJ.bound_lat
+
+    # Get the bounding box for the hillshade in lat/lon space
     infodict['BND_LAT_MIN'] =   M3_OBJ.bound_minlat
     infodict['BND_LAT_MAX'] =   M3_OBJ.bound_maxlat
-    infodict['BND_LON']     =   M3_OBJ.bound_lon
     infodict['BND_LON_MIN'] =   M3_OBJ.bound_minlon
     infodict['BND_LON_MAX'] =   M3_OBJ.bound_maxlon
 
@@ -324,47 +355,52 @@ def run_match(m3id):
                                   inlola=inlola)
     
     # Check if a match was successful
-    matched, hsh_fn, saved_fns, n_matches = checkFM(M3_OBJ, HSH_OBJ, workdir,
+    matched, hsh_fn, saved_fns, n_matches, mean_rad = checkFM(M3_OBJ, HSH_OBJ, workdir,
                                                     inrdn_fm=rdn_image_fn)
     first_hshfn = hsh_fn
+    zf_work = 1
     infodict['FIRST_TRY']=matched
     if not matched:
         logging.error('FIRST TRY FAILED, OPTIMIZING Z SCALE')
         zf = HSH_OBJ.get_best_zfactor()
         logging.info(f'Using zFactor {zf}')
-        matched, hsh_fn, saved_fns, n_matches = checkFM(M3_OBJ, HSH_OBJ, workdir,
+        matched, hsh_fn, saved_fns, n_matches, mean_rad = checkFM(M3_OBJ, HSH_OBJ, workdir,
                                                     inrdn_fm=rdn_image_fn, zfactor=zf)
+        zf_work = zf
     if not matched:
         logging.error(f"Z SCALING FAILED. TRYING Z FACTOR 0.5")
-        matched, hsh_fn, saved_fns, n_matches = checkFM(M3_OBJ, HSH_OBJ, workdir,
+        matched, hsh_fn, saved_fns, n_matches, mean_rad = checkFM(M3_OBJ, HSH_OBJ, workdir,
                                                     inrdn_fm=rdn_image_fn, zfactor=0.5)
-        
-    infodict['INC_MATCH'] = infodict['INC']
-    infodict['AZM_MATCH'] = infodict['AZM']
+        zf_work = 0.5
     infodict['WORKED'] = matched
     infodict['N_MATCHES'] = n_matches
-    
+    infodict['MEAN_RADIUS'] = mean_rad
+    infodict['Z_FACTOR'] = zf_work
+
     # If there has been any match, move the matching directory to Results/Worked, else 
     # write a file to Results/Failed indicating no match was found.
     if matched:
         shutil.copy(saved_fns[0], f"Results/Matches/{m3id}_match.tif")
         shutil.move(f"{workdir}/{m3id}", f"Results/Worked/{m3id}")
         shutil.move(f"{workdir}/{m3id}_RDN_average_byte.tif", f"Results/Worked/{m3id}/{m3id}_RDN_average_byte.tif")
-        shutil.move(hsh_fn, f"Results/Worked/{m3id}/{m3id}_hillshade_az{infodict['AZM_MATCH']:0.2f}_inc{infodict['INC_MATCH']:0.2f}.tif")
+        shutil.move(hsh_fn, f"Results/Worked/{m3id}/{hsh_fn.split('/')[-1]}")
         if hsh_fn != first_hshfn:
             shutil.move(first_hshfn, f"Results/Worked/{m3id}/{first_hshfn.split('/')[-1]}")
     else:
         shutil.move(f"{workdir}/{m3id}", f"Results/Failed/{m3id}")
         shutil.move(f"{workdir}/{m3id}_RDN_average_byte.tif", f"Results/Failed/{m3id}/{m3id}_RDN_average_byte.tif")
-        # os.mkdir(f"Results/Failed/{m3id}")
-        # shutil.move(f"{workdir}/{m3id}_RDN_average_byte.tif", f"Results/Failed/{m3id}/{m3id}_RDN_average_byte.tif")
-        shutil.move(first_hshfn, f"Results/Failed/{m3id}/{first_hshfn.split('/')[-1]}")
+        shutil.move(hsh_fn, f"Results/Failed/{m3id}/{hsh_fn.split('/')[-1]}")
         if hsh_fn != first_hshfn:
             shutil.move(first_hshfn, f"Results/Failed/{m3id}/{first_hshfn.split('/')[-1]}")
     
     shutil.rmtree(workdir)
     return infodict
 
+def show_results(fn):
+    acc_df = pd.read_csv(fn)
+    md = acc_df['MEAN_RADIUS'].values
+    md = md[md>0]
+    logging.info(f"ACCURACY\t Min: {np.min(md)}, Max: {np.max(md)}, Mean: {np.mean(md)}")
 
 if __name__ == "__main__":
     if len(sys.argv) == 2:
@@ -372,6 +408,9 @@ if __name__ == "__main__":
         quit()
      
     if len(sys.argv) > 1 and sys.argv[1] == '-f':
+        os.makedirs('Results/Worked', exist_ok=True)
+        os.makedirs('Results/Failed', exist_ok=True)
+        os.makedirs('Results/Matches', exist_ok=True)
 
         fnout = 'dataout.csv' if len(sys.argv) < 4 else sys.argv[3]
         m3ids = open(sys.argv[2], 'r').read().split('\n')
@@ -389,6 +428,9 @@ if __name__ == "__main__":
             k_data = run_match(m3ids[k_m3id])
             data = pd.concat([data, pd.DataFrame(k_data, index=[0])])
             data.to_csv(f'Results/{fnout}',index=False)
+
+        show_results(f'Results/{fnout}')
+
     else:
         logging.error("INVALID PARAMS\nSINGLE RUN:\t python LTB_FM_M3.py <M3ID>\nBATCH RUN:\t python LTB_FM_M3.py -f <M3 list file>")
     

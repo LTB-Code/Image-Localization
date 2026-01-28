@@ -2,15 +2,36 @@
 # and M3 images. This requires the thermal images to be pre-computed and stored
 # as TIFF files, and the M3 radiance images to be pre-processed as done in
 # the M3 feature matching step (averaged across bands, converted to byte scale).
+# Assumes LTB_FeatureMatch has already been run.
 
 # Kevin Gauld 2025
 
-import glob, os
+import glob, os, logging
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
 
 from ImageReg import IMPPAIL
+
+
+logging.basicConfig(filename='Results/runlog.log',
+                    filemode='a',
+                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.DEBUG)
+logging.getLogger("PIL.TiffImagePlugin").disabled=True
+
+# define a Handler which writes INFO messages or higher to the sys.stderr
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+# set a format which is simpler for console use
+formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+# tell the handler to use this format
+console.setFormatter(formatter)
+# add the handler to the root logger
+logging.getLogger('').addHandler(console)
+
+logging.info('STARTING THERMAL RUN')
 
 # Choose one of these to use for matching
 m3idA = 'M3G20081119T021733'
@@ -73,7 +94,7 @@ def make_overlay_img(therm_img, vswir_img, H_f, ofn):
         [0, 0, 1]
     ], dtype=np.float32)
     
-    print(T_center)
+    logging.info(f"{T_center=}")
 
     # Warp vswir_img to the center of the blank canvas
     img_overlay = cv.warpPerspective(vswir_img, T_center, canvas_size)
@@ -88,10 +109,10 @@ def make_overlay_img(therm_img, vswir_img, H_f, ofn):
     # Write output
     cv.imwrite(ofn, blended.astype(np.uint8))
 
-if __name__ == "__main__":
-    m3id = m3idD # Change to select which M3ID to use
+def run_thermal_match(m3id, plot=False):
+    logging.info(f"Running thermal match for {m3id}")
 
-    dst_fn = f'Results-THERMAL/{m3id}'
+    dst_fn = f'Results/Thermal/{m3id}'
     src_fn = f'Data_Thermal/TIFFs/{m3id}'
 
     os.makedirs(dst_fn, exist_ok=True)
@@ -99,18 +120,15 @@ if __name__ == "__main__":
     # Get the thermal images and the pre-computed M3 image used in matching
     # (same averaging across bands as in the original matching)
     thermal_im_fns = glob.glob(f'{src_fn}/*.tif')
-    match_im_fn = f'Data_Thermal/M3_IMGS/{m3id}_RDN_average_byte.tif' 
+
+    # Assumes the M3 image has already been processed in the M3 feature matching step
+    match_im_fn = f'Results/Worked/{m3id}/{m3id}_RDN_average_byte.tif' 
 
     therm_image = cv.imread(thermal_im_fns[0], cv.IMREAD_ANYDEPTH)
     match_im = cv.imread(match_im_fn, cv.IMREAD_ANYDEPTH)
     
     FM_OBJ = IMPPAIL()
-        
-    PLOT=False # Change this to true to pre-plot the first thermal and M3 image
-    if PLOT:
-        print(therm_image.shape)
-        print(match_im.shape)
-
+    if plot:
         plt.imshow(therm_image, cmap='inferno')
         plt.colorbar()
         plt.show()
@@ -119,7 +137,6 @@ if __name__ == "__main__":
         plt.colorbar()
         plt.show()
     
-
     for t_im_fn in thermal_im_fns:
         t_img = cv.imread(t_im_fn, cv.IMREAD_ANYDEPTH).astype(np.uint8)
         # Compute new size
@@ -128,26 +145,30 @@ if __name__ == "__main__":
         # Downsample image to best match expected pixel scale
         t_img = cv.resize(t_img, new_size, interpolation=cv.INTER_AREA)
         
-        print(f"ORIG: {t_img.shape=}\t{match_im.shape=}")
+        logging.info(f"ORIG: {t_img.shape=}\t{match_im.shape=}")
         
         cropsize = (int(match_im.shape[0]*0.95), int(match_im.shape[1]*0.8))
         t_img = t_img[t_img.shape[0]//2-cropsize[0]//2:t_img.shape[0]//2+cropsize[0]//2,
                       t_img.shape[1]//2-cropsize[1]//2:t_img.shape[1]//2+cropsize[1]//2,]
         
-        print(f"CROP: {t_img.shape=}\t{match_im.shape=}")
+        logging.info(f"CROP: {t_img.shape=}\t{match_im.shape=}")
 
         # Perform matching. If it works, save an image of the tie points and an overlay image
         # of the two images blended. If it fails, write a failure text file.
         try:
             H_f, kp_f, kp2, matches_f, mask = FM_OBJ.iterative_match(t_img, match_im)
             
-            print(f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}.png')
+            logging.info(f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}.png')
             make_output_img(t_img, match_im, H_f, kp_f, kp2, matches_f, mask, f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}.png')
             make_overlay_img(t_img, match_im, H_f, f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}_overlay.png')
         except Exception as e:
-            print(e)
+            logging.error(e)
             with open(f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}.txt', "w") as file:
                 file.write('FAILURE')
 
+
+if __name__ == "__main__":
+    for m3id in [m3idA, m3idB, m3idC, m3idD]: # Change to include/exclude M3IDs
+        run_thermal_match(m3id, plot=False)
 
 
