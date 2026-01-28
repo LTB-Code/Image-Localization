@@ -142,8 +142,6 @@ def match_and_plot(FM_OBJ, fn_prefix, im1, im2,
     return H_f, kp_f, kp2, matches_f, mask
 
 def get_backplanes(rdn_fn, hsh_fn, M3_OBJ, H):
-    hsh_info = gdal.Open(hsh_fn)
-
     hsh_im = cv.imread(hsh_fn, cv.IMREAD_ANYDEPTH)
     rdn_im = cv.imread(rdn_fn, cv.IMREAD_ANYDEPTH)
 
@@ -167,7 +165,7 @@ def get_backplanes(rdn_fn, hsh_fn, M3_OBJ, H):
     lon_backplane = cv.warpPerspective(lonimg_hsh, np.linalg.pinv(H), rdn_im.shape[::-1])
     lat_backplane = cv.warpPerspective(latimg_hsh, np.linalg.pinv(H), rdn_im.shape[::-1])
 
-    return lon_backplane, lat_backplane
+    return lon_backplane, lat_backplane, lon_grid, lat_grid
 
 def get_mean_dist(matches):
     H, mask = cv.findHomography(matches[0], matches[1], cv.RANSAC, 3)
@@ -229,7 +227,7 @@ def checkFM(M3_OBJ, HSH_OBJ, workdir,
     
     # Create the backplanes and save them to files
     logging.info(f'{m3id} SUCCEEDED! Generating backplanes...')
-    lon_bp, lat_bp = get_backplanes(inrdn_fm, inshd_fm, M3_OBJ, H_f)
+    lon_bp, lat_bp, lon_grid, lat_grid = get_backplanes(inrdn_fm, inshd_fm, M3_OBJ, H_f)
     np.save(f'{workdir}/{m3id}/{m3id}_LON.npy', lon_bp)
     plt.imsave(f'{workdir}/{m3id}/{m3id}_LON.png', lon_bp)
     np.save(f'{workdir}/{m3id}/{m3id}_LAT.npy', lat_bp)
@@ -238,12 +236,16 @@ def checkFM(M3_OBJ, HSH_OBJ, workdir,
     pd.DataFrame(H_f).to_csv(f'{workdir}/{m3id}/{m3id}_HOMOGRAPHY.csv', index=False, header=False)
     src = np.array([kp_f[k.queryIdx].pt for k in matches_f])
     dst = np.array([kp2[k.trainIdx].pt for k in matches_f])
+    dst_lat = lat_grid[dst[:,1].astype(int), dst[:,0].astype(int)]
+    dst_lon = lon_grid[dst[:,1].astype(int), dst[:,0].astype(int)]
 
     df = pd.DataFrame({
-        "src_x": src[:, 0],
-        "src_y": src[:, 1],
-        "dst_x": dst[:, 0],
-        "dst_y": dst[:, 1],
+        "M3_x": src[:, 0],
+        "M3_y": src[:, 1],
+        "HSH_x": dst[:, 0],
+        "HSH_y": dst[:, 1],
+        "HSH_lat": dst_lat,
+        "HSH_lon": dst_lon
     })
 
     df.to_csv(
@@ -403,14 +405,16 @@ def show_results(fn):
     logging.info(f"ACCURACY\t Min: {np.min(md)}, Max: {np.max(md)}, Mean: {np.mean(md)}")
 
 if __name__ == "__main__":
+    os.makedirs('Results/Worked', exist_ok=True)
+    os.makedirs('Results/Failed', exist_ok=True)
+    os.makedirs('Results/Matches', exist_ok=True)
+
     if len(sys.argv) == 2:
         print(run_match(sys.argv[1]))
         quit()
      
     if len(sys.argv) > 1 and sys.argv[1] == '-f':
-        os.makedirs('Results/Worked', exist_ok=True)
-        os.makedirs('Results/Failed', exist_ok=True)
-        os.makedirs('Results/Matches', exist_ok=True)
+        
 
         fnout = 'dataout.csv' if len(sys.argv) < 4 else sys.argv[3]
         m3ids = open(sys.argv[2], 'r').read().split('\n')

@@ -54,7 +54,7 @@ For every match that works, the following is saved in the `Results/Worked/{m3id}
 | `{m3id}_HOMOGRAPHY.csv`| 3x3 homography matrix computed from M3 to hillshade |
 | `{m3id}_LAT.npy` / `{m3id}_LAT.png` | Latitude backplane as a np array, with png for vis |
 | `{m3id}_LON.npy` / `{m3id}_LON.png` | Longitude backplane as a np array, with png for vis |
-| `{m3id}_MATCHES.csv` | Correspondence table from pixel in M3 image (src) to pixel in hillshade |
+| `{m3id}_MATCHES.csv` | Correspondence table from pixel in M3 image (src) to pixel in hillshade and corresponding lat/lon.Note a value of 600 in lat/lon is a NODATA value, falling outside the computed backplane.|
 
 In `Results/Matches`, there is a single file for each successful match, `{m3id}_match.tif`, which is a copy of the output overlay image for easy access (also given in `Results/Worked/{m3id}/{m3id}_az{azm}_inc{inc}_overlay.tif`)
 
@@ -73,7 +73,7 @@ There are two cases for `Results/Failed`, with either an inability to find any h
 | `{m3id}_HOMOGRAPHY.csv`| 3x3 homography matrix computed from M3 to hillshade | Only if backplane error |
 | `{m3id}_LAT.npy` / `{m3id}_LAT.png` | Latitude backplane as a np array, with png for vis | Only if backplane error |
 | `{m3id}_LON.npy` / `{m3id}_LON.png` | Longitude backplane as a np array, with png for vis | Only if backplane error |
-| `{m3id}_MATCHES.csv` | Correspondence table from pixel in M3 image (src) to pixel in hillshade | Only if backplane error |
+| `{m3id}_MATCHES.csv` | Correspondence table from pixel in M3 image (src) to pixel in hillshade and corresponding lat/lon. Note a value of 600 in lat/lon is a NODATA value, falling outside the computed backplane.| Only if backplane error |
 
 
 #### Results/dataout.csv
