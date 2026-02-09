@@ -20,7 +20,7 @@
 # Kevin Gauld, 2025
 
 
-import os, sys, shutil, traceback, logging
+import os, sys, shutil, traceback, logging, glob
 
 from osgeo import gdal
 
@@ -409,13 +409,14 @@ if __name__ == "__main__":
     os.makedirs('Results/Failed', exist_ok=True)
     os.makedirs('Results/Matches', exist_ok=True)
 
+    # Get a list of M3IDs in the data directory
+    valid_m3ids = [k.split('/')[-1].split('_')[0] for k in  glob.glob(f"{m3dir}/M3G*_RDN.IMG")]
+
     if len(sys.argv) == 2:
         print(run_match(sys.argv[1]))
         quit()
      
     if len(sys.argv) > 1 and sys.argv[1] == '-f':
-        
-
         fnout = 'dataout.csv' if len(sys.argv) < 4 else sys.argv[3]
         m3ids = open(sys.argv[2], 'r').read().split('\n')
 
@@ -428,8 +429,18 @@ if __name__ == "__main__":
             if m3ids[k_m3id] in data['M3ID'].values:
                 logging.info(f"Skipping {m3ids[k_m3id]} - MATCH {'WORKED' if data[data['M3ID'] == m3ids[k_m3id]]['WORKED'].values[0] else 'FAILED'}")
                 continue
-            logging.info(f"Starting {m3ids[k_m3id]}")
-            k_data = run_match(m3ids[k_m3id])
+            if m3ids[k_m3id] not in valid_m3ids:
+                logging.error(f"{m3ids[k_m3id]} NOT FOUND IN DATA DIRECTORY! SKIPPING!")
+                k_data = {}
+                for k in DF_COLS: k_data[k] = None
+                k_data = {
+                    "M3ID": m3ids[k_m3id],
+                    "WORKED": False,
+                    "FILE_FOUND": False,
+                }
+            else:
+                logging.info(f"Starting {m3ids[k_m3id]}")
+                k_data = run_match(m3ids[k_m3id])
             data = pd.concat([data, pd.DataFrame(k_data, index=[0])])
             data.to_csv(f'Results/{fnout}',index=False)
 
