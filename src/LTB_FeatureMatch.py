@@ -402,6 +402,9 @@ def show_results(fn):
     acc_df = pd.read_csv(fn)
     md = acc_df['MEAN_RADIUS'].values
     md = md[md>0]
+    if len(md) == 0:
+        logging.info("NO SUCCESSFUL MATCHES, NO ACCURACY METRICS TO SHOW")
+        return
     logging.info(f"ACCURACY\t Min: {np.min(md)}, Max: {np.max(md)}, Mean: {np.mean(md)}")
 
 if __name__ == "__main__":
