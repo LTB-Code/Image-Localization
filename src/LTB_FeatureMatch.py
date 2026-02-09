@@ -433,7 +433,10 @@ if __name__ == "__main__":
                 logging.info(f"Skipping {m3ids[k_m3id]} - MATCH {'WORKED' if data[data['M3ID'] == m3ids[k_m3id]]['WORKED'].values[0] else 'FAILED'}")
                 continue
             if m3ids[k_m3id] not in valid_m3ids:
-                logging.error(f"{m3ids[k_m3id]} NOT FOUND IN DATA DIRECTORY! SKIPPING!")
+                if len(m3ids[k_m3id]) == 0:
+                    logging.warning(f"EMPTY STRING IN LIST! SKIPPING!")
+                    continue
+                logging.error(f"{m3ids[k_m3id]} NOT FOUND IN DATA DIRECTORY!")
                 k_data = {}
                 for k in DF_COLS: k_data[k] = None
                 k_data = {
