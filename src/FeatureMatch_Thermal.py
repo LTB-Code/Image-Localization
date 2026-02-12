@@ -43,6 +43,7 @@ m3idD = 'M3G20090423T231946'
 VALID_THERMAL_IDS = [m3idA, m3idB, m3idC, m3idD]
 
 SCALE_FACTOR = 140/60 # Scale to 140 m/pix to match M3
+
 detector_settings = {
     'nfeatures': 0,
     'nOctaveLayers': 6,
@@ -154,13 +155,21 @@ def run_thermal_match(m3id, plot=False):
         t_img = cv.imread(t_im_fn, cv.IMREAD_ANYDEPTH).astype(np.uint8)
         # Compute new size
         new_size = (int(t_img.shape[1] / SCALE_FACTOR), int(t_img.shape[0] / SCALE_FACTOR))
-        
+
         # Downsample image to best match expected pixel scale
         t_img = cv.resize(t_img, new_size, interpolation=cv.INTER_AREA)
-        
         logging.info(f"ORIG: {t_img.shape=}\t{match_im.shape=}")
         
         cropsize = (int(match_im.shape[0]*0.95), int(match_im.shape[1]*0.8))
+
+        # Compute preprocessing transform (crop and scale adjustment)
+        Hrz, Wrz = t_img.shape[:2]
+        y0 = Hrz//2 - cropsize[0]//2
+        x0 = Wrz//2 - cropsize[1]//2
+        H_PRE = [[1/SCALE_FACTOR, 0,              -x0],
+                 [0,              1/SCALE_FACTOR, -y0],
+                 [0,              0,                1]]
+        
         t_img = t_img[t_img.shape[0]//2-cropsize[0]//2:t_img.shape[0]//2+cropsize[0]//2,
                       t_img.shape[1]//2-cropsize[1]//2:t_img.shape[1]//2+cropsize[1]//2,]
         
@@ -170,8 +179,6 @@ def run_thermal_match(m3id, plot=False):
         # of the two images blended. If it fails, write a failure text file.
         try:
             H_f, kp_f, kp2, matches_f, mask = FM_OBJ.iterative_match(t_img, match_im)
-            
-            
         except Exception as e:
             logging.error(e)
             with open(f'{dst_fn}/Failed/{lh_stub}.txt', "w") as file:
@@ -181,7 +188,7 @@ def run_thermal_match(m3id, plot=False):
         # logging.info(f'{dst_fn}/{lh_stub}.png')
         make_output_img(t_img, match_im, H_f, kp_f, kp2, matches_f, mask, f'{dst_fn}/Worked/{lh_stub}_pairs.png')
         make_overlay_img(t_img, match_im, H_f, f'{dst_fn}/Worked/{lh_stub}_overlay.png')
-        pd.DataFrame(H_f).to_csv(f'{dst_fn}/Worked/{lh_stub}_HOMOGRAPHY.csv', index=False, header=False)
+        pd.DataFrame(H_f@H_PRE).to_csv(f'{dst_fn}/Worked/{lh_stub}_HOMOGRAPHY.csv', index=False, header=False)
         src = np.array([kp_f[k.queryIdx].pt for k in matches_f])
         dst = np.array([kp2[k.trainIdx].pt for k in matches_f])
 
