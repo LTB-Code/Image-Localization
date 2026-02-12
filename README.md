@@ -117,7 +117,7 @@ For the `Worked` directory, we have the following outputs for each local hour `l
 | `{m3id}_localhour_{lh}_overlay.tif`| Output overlay image |
 | `{m3id}_localhour_{lh}_pairs.tif`| Output match pairs, drawn from Thermal to M3 |
 | `{m3id}_HOMOGRAPHY.csv`| 3x3 homography matrix computed from Thermal to M3 |
-| `{m3id}_MATCHES.csv` | Correspondence table from pixel in Thermal image to pixel in M3 image. |
+| `{m3id}_MATCHES.csv` | Correspondence table from pixel in Thermal image to pixel in M3 image, with lat/lon pulled from the computed M3 backplane. |
 
 For the `Failed` directory, there is a single output for each local hour `lh`.
 
