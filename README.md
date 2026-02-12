@@ -81,7 +81,7 @@ There are two cases for `Results/Failed`, with either an inability to find any h
 | `{m3id}_HOMOGRAPHY.csv`| 3x3 homography matrix computed from M3 to hillshade | Only if backplane error |
 | `{m3id}_LAT.npy` / `{m3id}_LAT.png` | Latitude backplane as a np array, with png for vis | Only if backplane error |
 | `{m3id}_LON.npy` / `{m3id}_LON.png` | Longitude backplane as a np array, with png for vis | Only if backplane error |
-| `{m3id}_MATCHES.csv` | Correspondence table from pixel in M3 image to pixel in hillshade and corresponding lat/lon. Note a value of 600 in lat/lon is a NODATA value, falling outside the computed backplane.| Only if backplane error |
+| `{m3id}_MATCHES.csv` | Correspondence table from pixel in M3 image to pixel in hillshade and corresponding lat/lon. Note a value of 600 in lat/lon is a NODATA value, falling outside the computed backplane. NODATA values occur when the corresponding keypoint in the hillshade falls outside of the region occupied by the M3 image, and is likely indicative of a match-pair removed from the overall homography via RANSAC filtering. | Only if backplane error |
 
 
 #### Results/dataout.csv
