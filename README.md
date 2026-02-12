@@ -34,7 +34,9 @@ where m3id list is a file with newline-separated M3IDs for matching. Alternative
 Note that the thermal matching code assumes the M3 matching has been run already. To run the thermal matching there are three options
 
 `python Image-Localization/src/FeatureMatch_Thermal.py -f <m3id list>`
+
 `python Image-Localization/src/FeatureMatch_Thermal.py <m3id>`
+
 `python Image-Localization/src/FeatureMatch_Thermal.py`
 
 where the first two options work the same as for M3 matching. A run with no args will populate all four possible thermal cases.
