@@ -24,22 +24,24 @@ detector_settings = {
     'sigma': 1.6
 }
 
+matcher_settings = {
+    'crossCheck':False
+}
+
 class FeatureMatcher:
     '''
     Provides SIFT matcher and detector. Allows for computation of matches betweeen
     two images. 
     '''
-    def __init__(self, 
-                 detector=cv.SIFT_create(**detector_settings),
-                 matcher=cv.BFMatcher()):
+    def __init__(self, dset=detector_settings, mset=matcher_settings):
         '''
         Initialize FeatureMatcher with a default detector and matcher, or
         optionally pass in a detector and matcher OpenCV object. Defaults for
         the detector are at the top of file, defaults for the matcher are the 
         OpenCV defaults for a BFMatcher.
         '''
-        self.detector = detector
-        self.matcher = matcher
+        self.detector = cv.SIFT_create(**dset)
+        self.matcher = cv.BFMatcher(**mset)
 
     def knn_ratio(self, des1, des2, k=2, r=0.8):
         '''
@@ -126,8 +128,8 @@ class IMPPAIL:
     '''
     Iteratively improves matching between images.
     '''
-    def __init__(self, fmobj=FeatureMatcher()):
-        self.fmobj = fmobj
+    def __init__(self, dset=detector_settings, mset=matcher_settings):
+        self.fmobj = FeatureMatcher(dset=dset, mset=mset)
     
     def step(self, im1, M_in, k, kp_f, des_f, matches_f):
         '''

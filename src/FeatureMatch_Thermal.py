@@ -6,10 +6,11 @@
 
 # Kevin Gauld 2025
 
-import glob, os, logging
+import glob, os, logging, sys
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from ImageReg import IMPPAIL
 
@@ -39,7 +40,16 @@ m3idB = 'M3G20090212T082712'
 m3idC = 'M3G20090212T203719'
 m3idD = 'M3G20090423T231946'
 
+VALID_THERMAL_IDS = [m3idA, m3idB, m3idC, m3idD]
+
 SCALE_FACTOR = 140/60 # Scale to 140 m/pix to match M3
+detector_settings = {
+    'nfeatures': 0,
+    'nOctaveLayers': 6,
+    'contrastThreshold': 0.02,
+    'edgeThreshold': 20,
+    'sigma': 1.6
+}
 
 def make_output_img(therm_img, vswir_img, H_f, kp_f, kp2, matches_f, mask, outfn):
     scale = vswir_img.shape[0]/therm_img.shape[0]
@@ -116,6 +126,8 @@ def run_thermal_match(m3id, plot=False):
     src_fn = f'Data_Thermal/TIFFs/{m3id}'
 
     os.makedirs(dst_fn, exist_ok=True)
+    os.makedirs(f"{dst_fn}/Worked", exist_ok=True)
+    os.makedirs(f"{dst_fn}/Failed", exist_ok=True)
 
     # Get the thermal images and the pre-computed M3 image used in matching
     # (same averaging across bands as in the original matching)
@@ -127,7 +139,7 @@ def run_thermal_match(m3id, plot=False):
     therm_image = cv.imread(thermal_im_fns[0], cv.IMREAD_ANYDEPTH)
     match_im = cv.imread(match_im_fn, cv.IMREAD_ANYDEPTH)
     
-    FM_OBJ = IMPPAIL()
+    FM_OBJ = IMPPAIL(dset=detector_settings)
     if plot:
         plt.imshow(therm_image, cmap='inferno')
         plt.colorbar()
@@ -138,6 +150,7 @@ def run_thermal_match(m3id, plot=False):
         plt.show()
     
     for t_im_fn in thermal_im_fns:
+        lh_stub = t_im_fn.split("/")[-1].split(".")[0]
         t_img = cv.imread(t_im_fn, cv.IMREAD_ANYDEPTH).astype(np.uint8)
         # Compute new size
         new_size = (int(t_img.shape[1] / SCALE_FACTOR), int(t_img.shape[0] / SCALE_FACTOR))
@@ -158,17 +171,53 @@ def run_thermal_match(m3id, plot=False):
         try:
             H_f, kp_f, kp2, matches_f, mask = FM_OBJ.iterative_match(t_img, match_im)
             
-            logging.info(f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}.png')
-            make_output_img(t_img, match_im, H_f, kp_f, kp2, matches_f, mask, f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}_pairs.png')
-            make_overlay_img(t_img, match_im, H_f, f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}_overlay.png')
+            
         except Exception as e:
             logging.error(e)
-            with open(f'{dst_fn}/{t_im_fn.split("/")[-1].split(".")[0]}.txt', "w") as file:
+            with open(f'{dst_fn}/Failed/{lh_stub}.txt', "w") as file:
                 file.write('FAILURE')
-
+            continue
+        
+        # logging.info(f'{dst_fn}/{lh_stub}.png')
+        make_output_img(t_img, match_im, H_f, kp_f, kp2, matches_f, mask, f'{dst_fn}/Worked/{lh_stub}_pairs.png')
+        make_overlay_img(t_img, match_im, H_f, f'{dst_fn}/Worked/{lh_stub}_overlay.png')
+        pd.DataFrame(H_f).to_csv(f'{dst_fn}/Worked/{lh_stub}_HOMOGRAPHY.csv', index=False, header=False)
+        src = np.array([kp_f[k.queryIdx].pt for k in matches_f])
+        dst = np.array([kp2[k.trainIdx].pt for k in matches_f])
+        df = pd.DataFrame({
+            "THERM_x": src[:, 0],
+            "THERM_y": src[:, 1],
+            "M3_x": dst[:, 0],
+            "M3_y": dst[:, 1],
+        })
+        df.to_csv(
+            f"{dst_fn}/Worked/{lh_stub}_MATCHES.csv",
+            index=False,
+            float_format="%.6f"
+        )
 
 if __name__ == "__main__":
-    for m3id in [m3idA, m3idB, m3idC, m3idD]: # Change to include/exclude M3IDs
-        run_thermal_match(m3id, plot=False)
+    if len(sys.argv) == 2:
+        m3id_run = sys.argv[1]
+        if m3id_run not in VALID_THERMAL_IDS:
+            raise ValueError(
+                f"Invalid m3id '{m3id_run}'. "
+                f"Must be one of: {sorted(VALID_THERMAL_IDS)}"
+            )
+        print(run_thermal_match(sys.argv[1]))
+        quit()
+    
+    if len(sys.argv) > 1 and sys.argv[1] == '-f':
+        m3id_list = open(sys.argv[2], 'r').read().split('\n')
+    elif len(sys.argv) == 1:
+        m3id_list = VALID_THERMAL_IDS
+    else:
+        raise Exception("Invalid params. Either -f <filename> to run a file, <M3ID> to run an id, or nothing to run all thermal matches.")
+    
+    for m3id in m3id_list:
+        try:
+           run_thermal_match(m3id, plot=False)
+        except Exception as e:
+            logging.error(e)
 
 
