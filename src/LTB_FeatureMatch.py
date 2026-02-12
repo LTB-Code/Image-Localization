@@ -244,8 +244,8 @@ def checkFM(M3_OBJ, HSH_OBJ, workdir,
         "M3_y": src[:, 1],
         "HSH_x": dst[:, 0],
         "HSH_y": dst[:, 1],
-        "HSH_lat": dst_lat,
-        "HSH_lon": dst_lon
+        "lat": dst_lat,
+        "lon": dst_lon
     })
 
     df.to_csv(

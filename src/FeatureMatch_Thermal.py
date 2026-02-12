@@ -184,12 +184,19 @@ def run_thermal_match(m3id, plot=False):
         pd.DataFrame(H_f).to_csv(f'{dst_fn}/Worked/{lh_stub}_HOMOGRAPHY.csv', index=False, header=False)
         src = np.array([kp_f[k.queryIdx].pt for k in matches_f])
         dst = np.array([kp2[k.trainIdx].pt for k in matches_f])
+
+        lon_grid, lat_grid = np.load(f"Results/Worked/{m3id}/{m3id}_LON.npy"), np.load(f"Results/Worked/{m3id}/{m3id}_LAT.npy")
+        dst_lat = lat_grid[dst[:,1].astype(int), dst[:,0].astype(int)]
+        dst_lon = lon_grid[dst[:,1].astype(int), dst[:,0].astype(int)]
         df = pd.DataFrame({
             "THERM_x": src[:, 0],
             "THERM_y": src[:, 1],
             "M3_x": dst[:, 0],
             "M3_y": dst[:, 1],
+            "lat": dst_lat,
+            "lon": dst_lon
         })
+        
         df.to_csv(
             f"{dst_fn}/Worked/{lh_stub}_MATCHES.csv",
             index=False,
