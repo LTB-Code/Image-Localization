@@ -2,7 +2,7 @@
 
 This repository includes the code for the IMPPAIL process as described in Gauld et al. (2025).
 
-The IMPPAIL pipeline is included within the `ImageReg.py` file. Other files are provided to replicate the matching process used for Lunar Trailblazer.
+The IMPPAIL pipeline is included within the `ImageReg.py` file. This module is made with the intention of being usable in other similar applications without relying on the Lunar Trailblazer-specific files. Other files are provided to replicate the matching process used for Lunar Trailblazer, and give insight into implementation for potentially desireable matching outputs.
 
 ## How to run
 
@@ -27,11 +27,17 @@ When in the working dir, run the M3-Hillshade match using
 
 `python Image-Localization/src/LTB_FeatureMatch.py -f <m3id list>`
 
-where m3id list is a file with newline-separated M3IDs for matching. For the thermal match, run 
+where m3id list is a file with newline-separated M3IDs for matching. Alternatively, to run a single m3id, run
 
+`python Image-Localization/src/LTB_FeatureMatch.py <m3id>`
+
+Note that the thermal matching code assumes the M3 matching has been run already. To run the thermal matching there are three options
+
+`python Image-Localization/src/FeatureMatch_Thermal.py -f <m3id list>`
+`python Image-Localization/src/FeatureMatch_Thermal.py <m3id>`
 `python Image-Localization/src/FeatureMatch_Thermal.py`
 
-to populate thermal results. This assumes the M3-hillshade matches have already been computed
+where the first two options work the same as for M3 matching. A run with no args will populate all four possible thermal cases.
 
 ## Outputs
 
@@ -54,7 +60,7 @@ For every match that works, the following is saved in the `Results/Worked/{m3id}
 | `{m3id}_HOMOGRAPHY.csv`| 3x3 homography matrix computed from M3 to hillshade |
 | `{m3id}_LAT.npy` / `{m3id}_LAT.png` | Latitude backplane as a np array, with png for vis |
 | `{m3id}_LON.npy` / `{m3id}_LON.png` | Longitude backplane as a np array, with png for vis |
-| `{m3id}_MATCHES.csv` | Correspondence table from pixel in M3 image (src) to pixel in hillshade and corresponding lat/lon.Note a value of 600 in lat/lon is a NODATA value, falling outside the computed backplane.|
+| `{m3id}_MATCHES.csv` | Correspondence table from pixel in M3 image to pixel in hillshade and corresponding lat/lon.Note a value of 600 in lat/lon is a NODATA value, falling outside the computed backplane.|
 
 In `Results/Matches`, there is a single file for each successful match, `{m3id}_match.tif`, which is a copy of the output overlay image for easy access (also given in `Results/Worked/{m3id}/{m3id}_az{azm}_inc{inc}_overlay.tif`)
 
@@ -73,7 +79,7 @@ There are two cases for `Results/Failed`, with either an inability to find any h
 | `{m3id}_HOMOGRAPHY.csv`| 3x3 homography matrix computed from M3 to hillshade | Only if backplane error |
 | `{m3id}_LAT.npy` / `{m3id}_LAT.png` | Latitude backplane as a np array, with png for vis | Only if backplane error |
 | `{m3id}_LON.npy` / `{m3id}_LON.png` | Longitude backplane as a np array, with png for vis | Only if backplane error |
-| `{m3id}_MATCHES.csv` | Correspondence table from pixel in M3 image (src) to pixel in hillshade and corresponding lat/lon. Note a value of 600 in lat/lon is a NODATA value, falling outside the computed backplane.| Only if backplane error |
+| `{m3id}_MATCHES.csv` | Correspondence table from pixel in M3 image to pixel in hillshade and corresponding lat/lon. Note a value of 600 in lat/lon is a NODATA value, falling outside the computed backplane.| Only if backplane error |
 
 
 #### Results/dataout.csv
@@ -100,13 +106,21 @@ The output data log stores information on the run and image acquisition. The col
 
 ### FeatureMatch_Thermal.py (Thermal to M3)
 
-All results for a given m3id run are stored in `Results/Thermal/{m3id}`.
+All results for a given m3id run are stored in `Results/Thermal/{m3id}`. Within this directory are two subdirectories: `Worked` and `Failed`. It is important to note that the distinction between worked and failed is strictly if a homography was successfully created, and does not assess the accuracy of the homography itself. That is to say, manual inspection is necessary to verify that results in the `Worked` directory are valid, but results in the `Failed` directly are guaranteed to be unsuccessful.
 
-| File name | Description | Output condition |
+For the `Worked` directory, we have the following outputs for each local hour `lh`
+
+| File name | Description |
 |---|---|---|
-| `{m3id}_localhour_{lh}_overlay.tif`| Output overlay image | Match Success |
-| `{m3id}_localhour_{lh}_pairs.tif`| Output match pairs, drawn from Thermal to M3 | Match Success |
-| `{m3id}_localhour_{lh}.txt`.| File containing word 'FAILURE' to denote failure to match | Match Failure |
+| `{m3id}_localhour_{lh}_overlay.tif`| Output overlay image |
+| `{m3id}_localhour_{lh}_pairs.tif`| Output match pairs, drawn from Thermal to M3 |
+| `{m3id}_HOMOGRAPHY.csv`| 3x3 homography matrix computed from Thermal to M3 |
+| `{m3id}_MATCHES.csv` | Correspondence table from pixel in Thermal image to pixel in M3 image. |
+
+For the `Failed` directory, there is a single output for each local hour `lh`.
+
+| File name | Description |
+| `{m3id}_localhour_{lh}.txt`.| File containing word 'FAILURE' to denote a failure to create homography |
 
 ## Environment
 
