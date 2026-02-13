@@ -6,7 +6,7 @@ The IMPPAIL pipeline is included within the `ImageReg.py` file. This module is m
 
 ## How to run
 
-Much of the scripts expect to be run from a directory outside of the repository, with folders structured as follows:
+The scripts expect to be run from a directory outside of the repository, with folders structured as follows:
 
 ```
 working-dir/
