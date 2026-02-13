@@ -1,5 +1,7 @@
 # Image Localization: Code for the Iterative Matching Pipeline for Post-Acquisition Image Localization (IMPPAIL)
 
+[![DOI](https://zenodo.org/badge/780610865.svg)](https://doi.org/10.5281/zenodo.18636928)
+
 This repository includes the code for the IMPPAIL process as described in Gauld et al. (2025).
 
 The IMPPAIL pipeline is included within the `ImageReg.py` file. This module is made with the intention of being usable in other similar applications without relying on the Lunar Trailblazer-specific files. Other files are provided to replicate the matching process used for Lunar Trailblazer, and give insight into implementation for potentially desireable matching outputs.
