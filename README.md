@@ -10,7 +10,7 @@ Much of the scripts expect to be run from a directory outside of the repository,
 
 ```
 working-dir/
-├── Data_M3/                ## Stores M3 raw data
+├── Data_M3/                ## Stores M3 L1B data
 ├── Data_Thermal/
 │   ├── DATA                ## Raw simulation outputs as csv
 │   └── TIFFs               ## Processed output (see helpers/Process_Thermal.py)
@@ -39,7 +39,20 @@ Note that the thermal matching code assumes the M3 matching has been run already
 
 `python Image-Localization/src/FeatureMatch_Thermal.py`
 
-where the first two options work the same as for M3 matching. A run with no args will populate all four possible thermal cases.
+where the first two options work the same as for M3 matching. A run with no args will populate all four possible thermal cases. These four cases represent the four data products that were produced to enable development and testing of this code and are provided in the Data_Thermal directory from the data repository through CaltechDATA. Users attempting to run this code on other data products can use these four as samples for what the data format should be.
+
+## Provided scripts
+
+All scripts are provided in the `src` folder of the repository. 
+
+| File name | Description |
+|---|---|
+| `ImageReg.py`| Main implementation script for IMPPAIL. Includes all code for the iterative matching algorithm. |
+| `LTB_FeatureMatch.py` | Performs feature matching from M3 radiance to LOLA hillshades. |
+| `FeatureMatch_Thermal.py` | Performs feature matching from simulated LTM thermal to M3 radiance. |
+| `Hillshade_Generator.py`| Provides utilities for generating LOLA hillshades for matching. |
+| `M3.py` | Provides utilities to work with M3 L1B data to produce radiance images for matching. |
+| `Process_Thermal.py`| Utility script for converting csv-saved thermal simulations to usable TIFF images. |
 
 ## Outputs
 

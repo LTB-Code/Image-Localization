@@ -233,5 +233,3 @@ if __name__ == "__main__":
            run_thermal_match(m3id, plot=False)
         except Exception as e:
             logging.error(e)
-
-
