@@ -52,13 +52,15 @@ All scripts are provided in the `src` folder of the repository.
 | `FeatureMatch_Thermal.py` | Performs feature matching from simulated LTM thermal to M3 radiance. |
 | `Hillshade_Generator.py`| Provides utilities for generating LOLA hillshades for matching. |
 | `M3.py` | Provides utilities to work with M3 L1B data to produce radiance images for matching. |
-| `Process_Thermal.py`| Utility script for converting csv-saved thermal simulations to usable TIFF images. |
+| `Process_Thermal.py`| Utility script for converting csv-saved thermal simulations to usable TIFF images. Both the csv and TIFF files are accessible from the CaltechDATA repository. |
+
+We also provide `plot_overlay.ipynb` in the main directory of the repository as an example of how the matching products are used to create full blended overlay images.
 
 ## Outputs
 
 ### LTB_FeatureMatch.py (M3 to Hillshade)
 
-The batch matching process between M3 and Hillshade produces three directories - `Results/Worked` ,`Results/Failed`, and `Results/Matches`. It also produces a output log in `Results/runlog.log` and a data log in `Results/dataout.csv`.
+The batch matching process between M3 and Hillshade produces three directories - `Results/Worked` ,`Results/Failed`, and `Results/Matches`. It also produces a output log in `Results/runlog.log` and a data log in `Results/dataout.csv`. We provide `m3idlist` in the main directory of the repository, which contains the list of M3ID test cases used in our runs.
 
 #### Results/Worked and Results/Matches
 
@@ -142,7 +144,7 @@ For the `Failed` directory, there is a single output for each local hour `lh`.
 
 To install all dependencies into a conda env, run the following:
 
-`conda create -n imppail_env -c conda-forge python=3.10 numpy pandas matplotlib gdal opencv scikit-image pillow`
+`conda create -n imppail_env -c conda-forge python=3.10 numpy pandas matplotlib gdal opencv scikit-image pillow jupyterlab ipykernel`
 
 ## References
 

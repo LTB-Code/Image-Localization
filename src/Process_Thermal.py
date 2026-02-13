@@ -9,8 +9,10 @@ import os
 def get_tiffs(src_paths, dst_fpath):
     for src in src_paths:
         img_fns = glob.glob(f"{src}/*.csv")
+
         print(f"Starting {src}")
         for fn in img_fns:
+            fn_stub = '/'.join(fn.split('.')[0].split('/')[-2:])
             im = genfromtxt(fn, delimiter=',')
             
             # Basic removal of dead pixels from the simulated data (NaN or 1000+)
@@ -28,16 +30,16 @@ def get_tiffs(src_paths, dst_fpath):
             
             # Write tiff image out
             im = im.astype(np.uint8)
-            print(f"TIFFs/{fn[5:].split('.')[0]}.tif")
-            cv.imwrite(f"TIFFs/{fn[5:].split('.')[0]}.tif", im)
+            print(f"{dst_fpath}/{fn_stub}.tif")
+            cv.imwrite(f"{dst_fpath}/{fn_stub}.tif", im)
         print(f"Done with {src}")
 
 if __name__ == "__main__":
-    src_paths = glob.glob('DATA/M3G*')
-    dst_fpath = 'TIFFs'
+    src_paths = glob.glob('Data_Thermal/DATA/M3G*')
+    dst_fpath = 'Data_Thermal/TIFFs'
+    os.makedirs(dst_fpath, exist_ok=True)
     
-    for p in [f'{dst_fpath}/'+ k.split('/')[1] for k in src_paths]:
-        if not os.path.exists(p):
-            os.mkdir(p)
+    for p in [f'{dst_fpath}/'+ k.split('/')[-1] for k in src_paths]:
+        os.makedirs(p, exist_ok=True)
 
     get_tiffs(src_paths, dst_fpath)
