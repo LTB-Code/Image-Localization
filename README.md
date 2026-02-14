@@ -154,4 +154,6 @@ For more information on the algorithm and applications, see
 
 `Gauld, K.D. et al. (2026), Post-Acquisition Image-Based Localization for High Resolution Thermal and Visible/Shortwave Infrared Images with Application to the Lunar Trailblazer Mission. Earth and Space Science, doi: 10.10/292025EA004594`
 
-Thermal data used in this paper, as well as our results will be in a forthcoming publicly available dataset on CaltechDATA.
+Thermal data used in this paper, as well as our results are in an available dataset on CaltechDATA here:
+
+`Gauld, K., Dickson, J., Warren, T., Yang, J., Bowles, N., & Ehlmann, B. (2026). Supporting Data for Post-Acquisition Image-Based Localization with Application to the Lunar Trailblazer Mission [Data set]. CaltechDATA. https://doi.org/10.22002/ad4b0-9cp74`
